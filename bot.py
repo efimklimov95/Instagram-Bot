@@ -1,5 +1,6 @@
 import logging
 import random
+from time import sleep
 
 from selenium.common.exceptions import NoSuchElementException, TimeoutException
 from selenium.webdriver.common.by import By
@@ -67,7 +68,7 @@ class AutoLikeBot:
                 self.driver.find_element_by_name('username').send_keys(config.USERNAME)
                 self.driver.find_element_by_name('password').send_keys(config.PASSWORD)
                 self.driver.find_element_by_xpath(
-                    '//*[@id="react-root"]/section/main/article/div[2]/div[1]/div/form/div[4]/button').click()
+                    '//*[@id="react-root"]/section/main/article/div[2]/div[1]/div/form/div/div[4]/button').click()
 
             except NoSuchElementException as e:
                 logger.warning(f"Could not find element. Error: {e}")
@@ -131,6 +132,98 @@ class AutoLikeBot:
             return False
         finally:
             self.close_and_open_tab()
+
+    def like_post_by_link(self, post_link):
+
+        self.open_and_switch_to_tab(post_link)
+        try:
+            self.wait_until(ec.presence_of_element_located((By.CLASS_NAME, 'fr66n')))
+            self.driver.find_element_by_class_name('fr66n').click()
+            logger.info(f"Liked {post_link}")
+            rand_wait_sec()
+            return True
+
+        # post might get removed
+        except (NoSuchElementException, TimeoutException):
+            return False
+        finally:
+            self.close_and_open_tab()
+
+    def like_following_list(self):
+        following_list = self.fetch_following_list()
+
+        for following in following_list:
+            try:
+                userurl = f"https://www.instagram.com/{following}/"
+                post_links = self.fetch_posts_links_from_profile(userurl)
+            except TimeoutException:
+                continue
+
+            print("Post Links")
+            i = 1
+            for link in post_links:
+                print(f"{i}.    {link}")
+                i += 1
+                self.like_post_by_link(link)
+
+
+    def fetch_following_list(self):
+        following_list = []
+
+        self.driver.get(config.USER_LINK)
+
+        self.driver.find_element_by_xpath('/html/body/div[1]/section/main/div[1]/header/section/ul/li[3]/a').click()
+        self.wait_until(ec.presence_of_element_located((By.CLASS_NAME, 'PZuss')), timeout=7)
+
+        following_list_webelement = self.driver.find_element_by_class_name('PZuss')
+
+        self.wait_until(ec.presence_of_element_located((By.CLASS_NAME, 'FPmhX')), timeout=7)
+        following_list_subwebelement = following_list_webelement.find_elements_by_class_name('FPmhX')
+
+        for following in following_list_subwebelement:
+            following_list.append(following.text)
+
+        return following_list
+
+    def fetch_posts_links_from_profile(self, userurl):
+        self.open_and_switch_to_tab(userurl)
+        post_links_list = set()
+
+        try:
+            self.wait_until(ec.presence_of_element_located((By.CLASS_NAME, 'v1Nh3')), timeout=7)
+            # Scroll the page down to the bottom so all posts appear in DOM
+            scrolldown = self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);var scrolldown=document.body.scrollHeight;return scrolldown;")
+            match = False
+            while(match==False):
+                try:
+                    last_count = scrolldown
+                    sleep(3)
+                    scrolldown = self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);var scrolldown=document.body.scrollHeight;return scrolldown;")
+                    if last_count==scrolldown:
+                        match=True
+
+                    self.driver.execute_script("window.scrollTo(0,document.body.scrollHeight)")
+                    posts = self.driver.find_elements_by_class_name('v1Nh3')
+
+                    for post in posts:
+                        post_link = post.find_element_by_xpath('.//a')
+                        post_links_list.add(post_link.get_attribute('href'))
+
+                except Exception as e:
+                    print(type(e))    # the exception instance
+                    print(e.args)     # arguments stored in .args
+                    print(e)          # __str__ allows args to be printed directly,
+                                      # but may be overridden in exception subclasses
+                    pass
+        except Exception as e:
+            print(type(e))    # the exception instance
+            print(e.args)     # arguments stored in .args
+            print(e)          # __str__ allows args to be printed directly,
+                              # but may be overridden in exception subclasses
+            return post_links_list
+        finally:
+            self.close_and_open_tab()
+        return post_links_list
 
     def wait_until(self, condition, timeout=5):
         WebDriverWait(self.driver, timeout).until(condition)

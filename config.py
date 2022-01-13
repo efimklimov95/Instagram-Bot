@@ -10,3 +10,6 @@ DRIVER_EXECUTABLE_PATH = pathlib.Path(__file__).parent.absolute().joinpath("chro
 IGNORE_TAGS = []  # exact case non sensitive matching
 
 SKIP_LOGIN = False  # skip log in flow. Useful if you have profile with cookies saved
+
+# Link to profile to search following/follwers list of
+USER_LINK = ''

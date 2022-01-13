@@ -27,4 +27,9 @@ if __name__ == '__main__':
     with AutoLikeBot(configure_chrome_driver(),
                      post_filter=MyCustomFilter(ignore_tags=config.IGNORE_TAGS),
                      running_strategy=RunForeverWithBreaks(200)) as bot:
-        bot.like_from_explore()
+
+        # Likes on random posts from Explore
+        # bot.like_from_explore()
+
+        # Like every post from the list of people I follow
+        bot.like_following_list()
