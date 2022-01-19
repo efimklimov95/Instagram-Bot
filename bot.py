@@ -78,14 +78,14 @@ class AutoLikeBot:
             pass
 
         try:
-            # remember this browser prompt
+            # Remember this browser prompt
             self.driver.find_element_by_xpath(
                 '//*[@id="react-root"]/section/main/div/div/div/section/div/button').click()
         except NoSuchElementException:
             pass
 
         try:
-            # turn on notifications prompt
+            # Turn on notifications prompt
             self.driver.find_element_by_xpath("/html/body/div[4]/div/div/div/div[3]/button[2]").click()
             logger.debug("Skipping turn on notifications")
         except NoSuchElementException:
@@ -109,7 +109,7 @@ class AutoLikeBot:
     def open_and_switch_to_tab(self, url):
         handles = self.driver.window_handles
         self.driver.execute_script(f"window.open('{url}');")
-        # index based
+        # Index based
         self.driver.switch_to.window(self.driver.window_handles[len(handles)])
 
     def close_and_open_tab(self, tab_index=0):
@@ -127,7 +127,7 @@ class AutoLikeBot:
             rand_wait_sec()
             return True
 
-        # post might get removed
+        # Post might get removed
         except (NoSuchElementException, TimeoutException):
             return False
         finally:
@@ -143,23 +143,23 @@ class AutoLikeBot:
             rand_wait_sec()
             return True
 
-        # post might get removed
+        # Post might get removed
         except (NoSuchElementException, TimeoutException):
             return False
         finally:
             self.close_and_open_tab()
 
-    def like_following_list(self):
-        following_list = self.fetch_following_list()
+    def like_followings_list(self):
+        followings_list = self.fetch_followings_list()
 
-        for following in following_list:
+        for following in followings_list:
             try:
                 userurl = f"https://www.instagram.com/{following}/"
                 post_links = self.fetch_posts_links_from_profile(userurl)
             except TimeoutException:
                 continue
 
-            print("Post Links")
+            print("Post Links:")
             i = 1
             for link in post_links:
                 print(f"{i}.    {link}")
@@ -167,23 +167,39 @@ class AutoLikeBot:
                 self.like_post_by_link(link)
 
 
-    def fetch_following_list(self):
-        following_list = []
+    def fetch_followings_list(self):
+        followings_list = set()
 
         self.driver.get(config.USER_LINK)
+        followings_count = int(self.driver.find_elements_by_class_name('g47SY')[2].text)
 
-        self.driver.find_element_by_xpath('/html/body/div[1]/section/main/div[1]/header/section/ul/li[3]/a').click()
-        self.wait_until(ec.presence_of_element_located((By.CLASS_NAME, 'PZuss')), timeout=7)
+        try:
+            self.driver.find_element_by_xpath('/html/body/div[1]/section/main/div[1]/header/section/ul/li[3]/a').click()
+            self.wait_until(ec.presence_of_element_located((By.CLASS_NAME, 'isgrP')), timeout=7)
+            fBody = self.driver.find_element_by_class_name('isgrP')
 
-        following_list_webelement = self.driver.find_element_by_class_name('PZuss')
+            scrolling_times = (followings_count / 4)
+            scroll = 0
+            scroll_count = scrolling_times + 5
 
-        self.wait_until(ec.presence_of_element_located((By.CLASS_NAME, 'FPmhX')), timeout=7)
-        following_list_subwebelement = following_list_webelement.find_elements_by_class_name('FPmhX')
+            # Scroll the list of followings down to the bottom so all posts appear in DOM
+            while scroll < scroll_count:
+                fList = self.driver.find_elements_by_class_name('FPmhX')
 
-        for following in following_list_subwebelement:
-            following_list.append(following.text)
+                for following in fList:
+                    followings_list.add(following.text)
 
-        return following_list
+                self.driver.execute_script('arguments[0].scrollTop = arguments[0].scrollTop + arguments[0].offsetHeight;', fBody)
+                sleep(2)
+                scroll += 1
+
+        except Exception as e:
+            print(type(e))    # the exception instance
+            print(e.args)     # arguments stored in .args
+            print(e)          # __str__ allows args to be printed directly,
+                              # but may be overridden in exception subclasses
+            return followings_list
+        return followings_list
 
     def fetch_posts_links_from_profile(self, userurl):
         self.open_and_switch_to_tab(userurl)
@@ -194,12 +210,12 @@ class AutoLikeBot:
             # Scroll the page down to the bottom so all posts appear in DOM
             scrolldown = self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);var scrolldown=document.body.scrollHeight;return scrolldown;")
             match = False
-            while(match==False):
+            while(match == False):
                 try:
                     last_count = scrolldown
                     sleep(3)
                     scrolldown = self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);var scrolldown=document.body.scrollHeight;return scrolldown;")
-                    if last_count==scrolldown:
+                    if last_count == scrolldown:
                         match=True
 
                     self.driver.execute_script("window.scrollTo(0,document.body.scrollHeight)")
@@ -227,3 +243,10 @@ class AutoLikeBot:
 
     def wait_until(self, condition, timeout=5):
         WebDriverWait(self.driver, timeout).until(condition)
+
+    def list_all_followings(self):
+        followings_list = self.fetch_followings_list()
+
+        print("Followings List:")
+        for following in followings_list:
+            print(following)

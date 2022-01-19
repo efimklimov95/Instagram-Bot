@@ -32,4 +32,7 @@ if __name__ == '__main__':
         # bot.like_from_explore()
 
         # Like every post from the list of people I follow
-        bot.like_following_list()
+        # bot.like_followings_list()
+
+        # List all followings of the given profile
+        # bot.list_all_followings()
