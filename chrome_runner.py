@@ -1,4 +1,6 @@
 import pathlib
+import sys
+import getopt
 
 from selenium import webdriver
 
@@ -23,16 +25,34 @@ def configure_chrome_driver():
     return the_driver
 
 
-if __name__ == '__main__':
+def main(argv):
     with AutoLikeBot(configure_chrome_driver(),
                      post_filter=MyCustomFilter(ignore_tags=config.IGNORE_TAGS),
                      running_strategy=RunForeverWithBreaks(200)) as bot:
 
-        # Likes on random posts from Explore
-        # bot.like_from_explore()
+        try:
+            opts, args = getopt.getopt(argv,"helfp",["help","like_explore", "like_followings", "list_followings", "like_profile"])
+        except getopt.GetoptError:
+            print('chrome_runner.py [-h, --like_explore, --like_followings, --list_followings, --like_profile]')
+            sys.exit(2)
 
-        # Like every post from the list of people I follow
-        # bot.like_followings_list()
+        for opt, arg in opts:
+            if opt in ('-h', '--help'):
+                print('chrome_runner.py [-h, --like_explore, --like_followings, --list_followings, --like_profile')
+                sys.exit()
+            elif opt in ('-e', '--like_explore'):
+                # Likes on random posts from Explore
+                bot.like_from_explore()
+            elif opt in ('-l', '--like_followings'):
+                # Like every post from the list of people I follow
+                bot.like_followings_list()
+            elif opt in ('-f', '--list_followings'):
+                # List all followings of the given profile (writes them into a text file)
+                bot.list_all_followings()
+            elif opt in ('-p', '--like_profile'):
+                # Like all posts on given profile
+                bot.like_all_posts_on_profile(config.TARGET_USERNAME)
 
-        # List all followings of the given profile
-        # bot.list_all_followings()
+
+if __name__ == '__main__':
+    main(sys.argv[1:])

@@ -1,6 +1,7 @@
 import logging
 import random
 from time import sleep
+from datetime import datetime
 
 from selenium.common.exceptions import NoSuchElementException, TimeoutException
 from selenium.webdriver.common.by import By
@@ -152,25 +153,30 @@ class AutoLikeBot:
     def like_followings_list(self):
         followings_list = self.fetch_followings_list()
 
-        for following in followings_list:
+        for username, _ in followings_list.items():
             try:
-                userurl = f"https://www.instagram.com/{following}/"
-                post_links = self.fetch_posts_links_from_profile(userurl)
+                self.like_all_posts_on_profile(username)
             except TimeoutException:
                 continue
-
-            print("Post Links:")
-            i = 1
-            for link in post_links:
-                print(f"{i}.    {link}")
-                i += 1
-                self.like_post_by_link(link)
-
+            
+    def like_all_posts_on_profile(self, username):
+        try:
+            userurl = f"https://www.instagram.com/{username}/"
+            post_links = self.fetch_posts_links_from_profile(userurl)
+        except TimeoutException:
+            return
+        print("Post Links:")
+        i = 1
+        for link in post_links:
+            print(f"{i}.    {link}")
+            i += 1
+            self.like_post_by_link(link)
 
     def fetch_followings_list(self):
-        followings_list = set()
+        followings_list = {}
+        userurl = f"https://www.instagram.com/{config.TARGET_USERNAME}/"
 
-        self.driver.get(config.USER_LINK)
+        self.driver.get(userurl)
         followings_count = int(self.driver.find_elements_by_class_name('g47SY')[2].text)
 
         try:
@@ -184,11 +190,20 @@ class AutoLikeBot:
 
             # Scroll the list of followings down to the bottom so all posts appear in DOM
             while scroll < scroll_count:
-                fList = self.driver.find_elements_by_class_name('FPmhX')
+                fList = self.driver.find_elements_by_class_name('XfCBB')
 
                 for following in fList:
-                    followings_list.add(following.text)
+                    try:
+                        following = following.text
+                        following = following.split('\n')
 
+                        username = following[0]
+                        name = following[1]
+
+                        followings_list[username] = name
+                    except:
+                        continue
+                    
                 self.driver.execute_script('arguments[0].scrollTop = arguments[0].scrollTop + arguments[0].offsetHeight;', fBody)
                 sleep(2)
                 scroll += 1
@@ -199,6 +214,7 @@ class AutoLikeBot:
             print(e)          # __str__ allows args to be printed directly,
                               # but may be overridden in exception subclasses
             return followings_list
+
         return followings_list
 
     def fetch_posts_links_from_profile(self, userurl):
@@ -246,7 +262,8 @@ class AutoLikeBot:
 
     def list_all_followings(self):
         followings_list = self.fetch_followings_list()
-
-        print("Followings List:")
-        for following in followings_list:
-            print(following)
+        filename = config.TARGET_USERNAME + "_" + datetime.now().strftime("%d-%m-%Y_%H-%M-%S") + ".txt"
+        
+        with open(filename, "a", encoding="utf-8") as f_out:
+            for username, name in followings_list.items(): 
+                f_out.write('%s    %s\n' % (username, name))
