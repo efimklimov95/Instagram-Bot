@@ -26,6 +26,16 @@ def configure_chrome_driver():
 
 
 def main(argv):
+    help_msg = '''
+    Usage: python chrome_runner.py [-h, --like_explore, --like_followings, --list_followings, --like_profile]
+
+    -h, --help             Display this message
+    -e, --like_explore     Like set amount of posts from explore
+    -l, --like_followings  Like all posts of every person target account follows
+    -f, --list_followings  List all accounts target account follows (writes them into a text file)
+    -p, --like_profile     Like all posts on target account
+    '''
+
     with AutoLikeBot(configure_chrome_driver(),
                      post_filter=MyCustomFilter(ignore_tags=config.IGNORE_TAGS),
                      running_strategy=RunForeverWithBreaks(200)) as bot:
@@ -33,12 +43,12 @@ def main(argv):
         try:
             opts, args = getopt.getopt(argv,"helfp",["help","like_explore", "like_followings", "list_followings", "like_profile"])
         except getopt.GetoptError:
-            print('chrome_runner.py [-h, --like_explore, --like_followings, --list_followings, --like_profile]')
+            print(help_msg)
             sys.exit(2)
 
         for opt, arg in opts:
             if opt in ('-h', '--help'):
-                print('chrome_runner.py [-h, --like_explore, --like_followings, --list_followings, --like_profile')
+                print(help_msg)
                 sys.exit()
             elif opt in ('-e', '--like_explore'):
                 # Likes on random posts from Explore
