@@ -40,25 +40,8 @@ class AutoLikeBot:
         logger.info(post_tracker.stats)
         return None
 
-    def like_from_explore(self):
-        max_id = 0
-
-        while True:
-            try:
-                posts = self.fetch_posts_from_explore(max_id)
-            except TimeoutException:
-                continue
-            random.shuffle(posts)
-            for post in posts:
-                if self.post_filter.should_like(post):
-                    self.like_post(post)
-
-                    if not self.running_strategy.should_continue_run():
-                        return
-                else:
-                    post_tracker.skipped_post(post)
-
-            max_id += 1
+    def wait_until(self, condition, timeout=5):
+        WebDriverWait(self.driver, timeout).until(condition)
 
     def log_in(self):
         self.driver.get("https://www.instagram.com/")
@@ -68,8 +51,9 @@ class AutoLikeBot:
             try:
                 self.driver.find_element_by_name('username').send_keys(config.USERNAME)
                 self.driver.find_element_by_name('password').send_keys(config.PASSWORD)
-                self.driver.find_element_by_xpath(
-                    '//*[@id="react-root"]/section/main/article/div[2]/div[1]/div/form/div/div[4]/button').click()
+                login_button = self.driver.find_element_by_xpath(
+                    '//*[@id="react-root"]/section/main/article/div[2]/div[1]/div/form/div/div[4]/button')
+                self.driver.execute_script("arguments[0].click();", login_button)
 
             except NoSuchElementException as e:
                 logger.warning(f"Could not find element. Error: {e}")
@@ -80,24 +64,21 @@ class AutoLikeBot:
 
         try:
             # Remember this browser prompt
-            self.driver.find_element_by_xpath(
-                '//*[@id="react-root"]/section/main/div/div/div/section/div/button').click()
+            prompt_button = self.driver.find_element_by_xpath(
+                '//*[@id="react-root"]/section/main/div/div/div/section/div/button')
+            self.driver.execute_script("arguments[0].click();", prompt_button)
         except NoSuchElementException:
             pass
 
         try:
             # Turn on notifications prompt
-            self.driver.find_element_by_xpath("/html/body/div[4]/div/div/div/div[3]/button[2]").click()
+            skip_notifications_button = self.driver.find_element_by_xpath("/html/body/div[4]/div/div/div/div[3]/button[2]")
+            self.driver.execute_script("arguments[0].click();", skip_notifications_button)
             logger.debug("Skipping turn on notifications")
         except NoSuchElementException:
             pass
 
         self.wait_until(ec.presence_of_element_located((By.CLASS_NAME, 'C3uDN')))
-
-    def fetch_posts_from_explore(self, max_id=0):
-        text = self.load_pre_from_url(
-            f"https://www.instagram.com/explore/grid/?is_prefetch=false&omit_cover_media=false&module=explore_popular&use_sectional_payload=true&cluster_id=explore_all%3A0&include_fixed_destinations=true&max_id={max_id}")
-        return parse_explore(text)
 
     def load_pre_from_url(self, url):
         self.open_and_switch_to_tab(url)
@@ -117,60 +98,10 @@ class AutoLikeBot:
         self.driver.close()
         self.driver.switch_to.window(self.driver.window_handles[tab_index])
 
-    def like_post(self, post):
-
-        self.open_and_switch_to_tab(post.post_link)
-        try:
-            self.wait_until(ec.presence_of_element_located((By.CLASS_NAME, 'fr66n')))
-            self.driver.find_element_by_class_name('fr66n').click()
-            post_tracker.liked_post(post)
-            logger.info(f"Liked {post}")
-            rand_wait_sec()
-            return True
-
-        # Post might get removed
-        except (NoSuchElementException, TimeoutException):
-            return False
-        finally:
-            self.close_and_open_tab()
-
-    def like_post_by_link(self, post_link):
-
-        self.open_and_switch_to_tab(post_link)
-        try:
-            self.wait_until(ec.presence_of_element_located((By.CLASS_NAME, 'fr66n')))
-            self.driver.find_element_by_class_name('fr66n').click()
-            logger.info(f"Liked {post_link}")
-            rand_wait_sec()
-            return True
-
-        # Post might get removed
-        except (NoSuchElementException, TimeoutException):
-            return False
-        finally:
-            self.close_and_open_tab()
-
-    def like_followings_list(self):
-        followings_list = self.fetch_followings_list()
-
-        for username, _ in followings_list.items():
-            try:
-                self.like_all_posts_on_profile(username)
-            except TimeoutException:
-                continue
-            
-    def like_all_posts_on_profile(self, username):
-        try:
-            userurl = f"https://www.instagram.com/{username}/"
-            post_links = self.fetch_posts_links_from_profile(userurl)
-        except TimeoutException:
-            return
-        print("Post Links:")
-        i = 1
-        for link in post_links:
-            print(f"{i}.    {link}")
-            i += 1
-            self.like_post_by_link(link)
+    def fetch_posts_from_explore(self, max_id=0):
+        text = self.load_pre_from_url(
+            f"https://www.instagram.com/explore/grid/?is_prefetch=false&omit_cover_media=false&module=explore_popular&use_sectional_payload=true&cluster_id=explore_all%3A0&include_fixed_destinations=true&max_id={max_id}")
+        return parse_explore(text)
 
     def fetch_followings_list(self):
         followings_list = {}
@@ -179,7 +110,8 @@ class AutoLikeBot:
         self.driver.get(userurl)
 
         followings_count = int(self.driver.find_elements_by_class_name('g47SY')[2].text)
-        self.driver.find_element_by_xpath('/html/body/div[1]/section/main/div[1]/header/section/ul/li[3]/a').click()
+        followings_button = self.driver.find_element_by_xpath('/html/body/div[1]/section/main/div[1]/header/section/ul/li[3]/a')
+        self.driver.execute_script("arguments[0].click();", followings_button)
         self.wait_until(ec.presence_of_element_located((By.CLASS_NAME, 'isgrP')), timeout=7)
         fBody = self.driver.find_element_by_class_name('isgrP')
 
@@ -251,8 +183,82 @@ class AutoLikeBot:
             self.close_and_open_tab()
         return post_links_list
 
-    def wait_until(self, condition, timeout=5):
-        WebDriverWait(self.driver, timeout).until(condition)
+    def like_post(self, post):
+        self.open_and_switch_to_tab(post.post_link)
+        try:
+            self.wait_until(ec.presence_of_element_located((By.CLASS_NAME, 'fr66n')))
+            like_button = self.driver.find_element_by_xpath('//*[@class="fr66n"]/button')
+            self.driver.execute_script("arguments[0].click();", like_button)
+
+            post_tracker.liked_post(post)
+            logger.info(f"Liked {post}")
+            rand_wait_sec()
+            return True
+
+        # Post might get removed
+        except (NoSuchElementException, TimeoutException):
+            return False
+        finally:
+            self.close_and_open_tab()
+
+    def like_post_by_link(self, post_link):
+        self.open_and_switch_to_tab(post_link)
+        try:
+            self.wait_until(ec.presence_of_element_located((By.CLASS_NAME, 'fr66n')))
+            like_button = self.driver.find_element_by_xpath('//*[@class="fr66n"]/button')
+            self.driver.execute_script("arguments[0].click();", like_button)
+
+            logger.info(f"Liked {post_link}")
+            rand_wait_sec()
+            return True
+
+        # Post might get removed
+        except (NoSuchElementException, TimeoutException):
+            return False
+        finally:
+            self.close_and_open_tab()
+
+    def like_from_explore(self):
+        max_id = 0
+
+        while True:
+            try:
+                posts = self.fetch_posts_from_explore(max_id)
+            except TimeoutException:
+                continue
+            random.shuffle(posts)
+            for post in posts:
+                if self.post_filter.should_like(post):
+                    self.like_post(post)
+
+                    if not self.running_strategy.should_continue_run():
+                        return
+                else:
+                    post_tracker.skipped_post(post)
+
+            max_id += 1
+
+    def like_followings_list(self):
+        followings_list = self.fetch_followings_list()
+
+        for username, _ in followings_list.items():
+            try:
+                self.like_all_posts_on_profile(username)
+            except TimeoutException:
+                continue
+
+    def like_all_posts_on_profile(self, username):
+        try:
+            userurl = f"https://www.instagram.com/{username}/"
+            post_links = self.fetch_posts_links_from_profile(userurl)
+        except TimeoutException:
+            return
+        print("Post Links:")
+        i = 1
+        for link in post_links:
+            print(f"{i}.    {link}")
+            i += 1
+            self.like_post_by_link(link)
 
     def list_all_followings(self):
         followings_list = self.fetch_followings_list()
