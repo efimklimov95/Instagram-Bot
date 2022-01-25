@@ -177,43 +177,37 @@ class AutoLikeBot:
         userurl = f"https://www.instagram.com/{config.TARGET_USERNAME}/"
 
         self.driver.get(userurl)
+
         followings_count = int(self.driver.find_elements_by_class_name('g47SY')[2].text)
+        self.driver.find_element_by_xpath('/html/body/div[1]/section/main/div[1]/header/section/ul/li[3]/a').click()
+        self.wait_until(ec.presence_of_element_located((By.CLASS_NAME, 'isgrP')), timeout=7)
+        fBody = self.driver.find_element_by_class_name('isgrP')
 
-        try:
-            self.driver.find_element_by_xpath('/html/body/div[1]/section/main/div[1]/header/section/ul/li[3]/a').click()
-            self.wait_until(ec.presence_of_element_located((By.CLASS_NAME, 'isgrP')), timeout=7)
-            fBody = self.driver.find_element_by_class_name('isgrP')
+        scrolling_times = (followings_count / 4) + 5
+        scroll = 0
 
-            scrolling_times = (followings_count / 4)
-            scroll = 0
-            scroll_count = scrolling_times + 5
+        # Scroll the list of followings down to the bottom so all posts appear in DOM
+        # Initial scroll makes classes of followings change
+        self.driver.execute_script('arguments[0].scrollTop = arguments[0].scrollTop + arguments[0].offsetHeight;', fBody)
 
-            # Scroll the list of followings down to the bottom so all posts appear in DOM
-            while scroll < scroll_count:
-                fList = self.driver.find_elements_by_class_name('XfCBB')
+        while scroll < scrolling_times:
+            fList = self.driver.find_elements_by_class_name('enpQJ')
 
-                for following in fList:
-                    try:
-                        following = following.text
-                        following = following.split('\n')
+            for following in fList:
+                try:
+                    following = following.text
+                    following = following.split('\n')
 
-                        username = following[0]
-                        name = following[1]
+                    username = following[0]
+                    name = following[1]
 
-                        followings_list[username] = name
-                    except:
-                        continue
-                    
-                self.driver.execute_script('arguments[0].scrollTop = arguments[0].scrollTop + arguments[0].offsetHeight;', fBody)
-                sleep(2)
-                scroll += 1
+                    followings_list[username] = name
+                except:
+                    continue
 
-        except Exception as e:
-            print(type(e))    # the exception instance
-            print(e.args)     # arguments stored in .args
-            print(e)          # __str__ allows args to be printed directly,
-                              # but may be overridden in exception subclasses
-            return followings_list
+            self.driver.execute_script('arguments[0].scrollTop = arguments[0].scrollTop + arguments[0].offsetHeight;', fBody)
+            sleep(2)
+            scroll += 1
 
         return followings_list
 
@@ -263,7 +257,7 @@ class AutoLikeBot:
     def list_all_followings(self):
         followings_list = self.fetch_followings_list()
         filename = config.TARGET_USERNAME + "_" + datetime.now().strftime("%d-%m-%Y_%H-%M-%S") + ".txt"
-        
+
         with open(filename, "a", encoding="utf-8") as f_out:
             for username, name in followings_list.items(): 
                 f_out.write('%s    %s\n' % (username, name))
